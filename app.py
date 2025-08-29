@@ -89,7 +89,7 @@ st.markdown(
     f"""
     <style>
     .stButton button {{
-        width: 75%;
+        width: 100%;
         padding: 15px;
         font-size: 1rem;
         border-radius: 10px;
@@ -366,6 +366,7 @@ elif st.session_state.page == "About":
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
 
 
 
