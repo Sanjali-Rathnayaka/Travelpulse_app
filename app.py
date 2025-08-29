@@ -71,45 +71,43 @@ conn.commit()
 if not reviews_df.empty:
     reviews_df.to_sql("reviews", conn, if_exists="replace", index=False)
 
-# -------------------- Vertical Navbar --------------------
+# -------------------- Navbar as Boxes --------------------
 pages = ["Home", "Explore", "Itinerary", "About"]
 
 # Initialize page in session state
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-# Create a vertical box for navigation
-st.markdown("<div style='width:200px;'>", unsafe_allow_html=True)
-for page in pages:
-    if st.button(page, key=page):
+# Create a row of buttons for navigation
+cols = st.columns(len(pages))
+for i, page in enumerate(pages):
+    if cols[i].button(page):
         st.session_state.page = page
-st.markdown("</div>", unsafe_allow_html=True)
 
-# Custom CSS for vertical buttons
+# Highlight the selected page using custom CSS
 st.markdown(
-    """
+    f"""
     <style>
-    .stButton button {
-        width: 100%;
+    .stButton button {{
+        width: 75%;
         padding: 15px;
         font-size: 1rem;
         border-radius: 10px;
         margin-bottom: 5px;
         background-color: #f0f0f0;
         transition: all 0.3s ease;
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background-color: #4CAF50;
         color: white;
-    }
-    .stButton button:focus {
+    }}
+    .stButton button:focus {{
         outline: 3px solid #4CAF50;
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True
 )
-
 
 # -------------------- General CSS --------------------
 st.markdown(
@@ -368,6 +366,7 @@ elif st.session_state.page == "About":
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
 
 
 
