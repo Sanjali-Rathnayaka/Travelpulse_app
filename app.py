@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from io import BytesIO
 import streamlit as st
 import pandas as pd
@@ -7,7 +8,6 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-import sqlite3
 
 # -------------------- Page Setup --------------------
 st.set_page_config(page_title="TravelPulse Sri Lanka", layout="wide")
@@ -20,6 +20,7 @@ reviews_xlsx = os.path.join(BASE_DIR, "Final_Cleaned_Tourist_Reviews.xlsx")
 activities_csv = os.path.join(BASE_DIR, "Rural_Activities_Expanded.csv")
 
 ITINERARY_MAP = os.path.join(ASSETS_DIR, "sri-lankan-travel-map.jpg")
+ABOUT_IMG = os.path.join(ASSETS_DIR, "511564047_3690789407732651_2711082666974816646_n.jpg")
 ABOUT_SIDE_IMG = os.path.join(ASSETS_DIR, "jaffna-aesthetic.jpeg")
 
 # -------------------- Load Excel Data --------------------
@@ -27,14 +28,10 @@ ABOUT_SIDE_IMG = os.path.join(ASSETS_DIR, "jaffna-aesthetic.jpeg")
 def load_excel_data():
     try:
         df = pd.read_excel(reviews_xlsx)
-        df.columns = df.columns.str.strip().str.replace(' ', '_').str.replace(r'[^A-Za-z0-9_]', '', regex=True)
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                df[col] = df[col].astype(str)
-        return df
     except FileNotFoundError:
         st.error("⚠ Final_Cleaned_Tourist_Reviews.xlsx not found.")
-        return pd.DataFrame()
+        df = pd.DataFrame()
+    return df
 
 reviews_df = load_excel_data()
 
@@ -42,20 +39,21 @@ reviews_df = load_excel_data()
 @st.cache_data
 def load_activities_data():
     try:
-        df = pd.read_csv(activities_csv)
-        df.columns = df.columns.str.strip()
-        df['Activity_Category'] = df['Activity_Category'].astype(str).str.title().str.strip()
+        df = pd.read_csv(activities_csv)  # CSV must use commas
+        df.columns = df.columns.str.strip()  # remove any hidden spaces
+        df['Activity Category'] = df['Activity Category'].astype(str).str.title().str.strip()
         df['Activity'] = df['Activity'].astype(str).str.strip()
         df['District'] = df['District'].astype(str).str.title().str.strip()
-        return df
     except FileNotFoundError:
         st.error("⚠ Rural_Activities_Expanded.csv not found.")
-        return pd.DataFrame()
+        df = pd.DataFrame()
+    return df
 
 activities_df = load_activities_data()
 
 # -------------------- Data Cleaning --------------------
 if not reviews_df.empty:
+    reviews_df.columns = reviews_df.columns.str.strip()
     reviews_df['Cleaned_Review'] = reviews_df['Cleaned_Review'].astype(str)
     reviews_df['Sentiment'] = reviews_df['Sentiment'].astype(str).str.title()
     reviews_df['District'] = reviews_df['District'].astype(str).str.title().str.strip()
@@ -64,25 +62,33 @@ if not reviews_df.empty:
     reviews_df['Latitude'] = pd.to_numeric(reviews_df['Latitude'], errors='coerce')
     reviews_df['Longitude'] = pd.to_numeric(reviews_df['Longitude'], errors='coerce')
 
-# -------------------- In-Memory SQLite Setup --------------------
-conn = sqlite3.connect(":memory:")
+# -------------------- Database Setup --------------------
+conn = sqlite3.connect(os.path.join(BASE_DIR, "tourism.db"))
+cursor = conn.cursor()
+cursor.execute("DROP TABLE IF EXISTS reviews")
+conn.commit()
+
 if not reviews_df.empty:
     reviews_df.to_sql("reviews", conn, if_exists="replace", index=False)
 
 # -------------------- Navbar as Boxes --------------------
 pages = ["Home", "Explore", "Itinerary", "About"]
+
+# Initialize page in session state
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
+# Create a row of buttons for navigation
 cols = st.columns(len(pages))
 for i, page in enumerate(pages):
     if cols[i].button(page):
         st.session_state.page = page
 
+# Highlight the selected page using custom CSS
 st.markdown(
-    """
+    f"""
     <style>
-    .stButton button {
+    .stButton button {{
         width: 100%;
         padding: 15px;
         font-size: 1rem;
@@ -90,24 +96,29 @@ st.markdown(
         margin-bottom: 5px;
         background-color: #f0f0f0;
         transition: all 0.3s ease;
-    }
-    .stButton button:hover {
+    }}
+    .stButton button:hover {{
         background-color: #4CAF50;
         color: white;
-    }
-    .stButton button:focus {
+    }}
+    .stButton button:focus {{
         outline: 3px solid #4CAF50;
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True
 )
 
+# -------------------- General CSS --------------------
 st.markdown(
     """
     <style>
-    h1, h2, h3, h4, h5, h6 { font-weight: bold !important; }
-    .stMarkdown p { font-size: 1rem; }
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: bold !important;
+    }
+    .stMarkdown p {
+        font-size: 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -150,12 +161,21 @@ if st.session_state.page == "Home":
 # -------------------- Explore Page --------------------
 elif st.session_state.page == "Explore":
     st.title("🔍 Explore Sentiment Insights")
+    conn = sqlite3.connect(os.path.join(BASE_DIR, "tourism.db"))
     reviews = pd.read_sql("SELECT * FROM reviews", conn)
+    conn.close()
 
     if not reviews.empty:
         st.sidebar.header("🔎 Filter Reviews")
-        district_choice = st.sidebar.selectbox("Choose District", sorted(reviews["District"].dropna().unique()))
-        filtered_df = reviews[reviews["District"] == district_choice] if district_choice else reviews.copy()
+        filter_mode = st.sidebar.selectbox("Filter Mode", ["Show All", "Select Sentiment", "Select District"])
+        filtered_df = reviews.copy()
+
+        if filter_mode == "Select Sentiment":
+            sentiment_choice = st.sidebar.radio("Choose Sentiment", ["Positive", "Neutral", "Negative"])
+            filtered_df = reviews[reviews["Sentiment"] == sentiment_choice]
+        elif filter_mode == "Select District":
+            district_choice = st.sidebar.selectbox("Choose District", sorted(reviews["District"].dropna().unique()))
+            filtered_df = reviews[reviews["District"] == district_choice]
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Reviews", len(reviews))
@@ -164,6 +184,7 @@ elif st.session_state.page == "Explore":
         st.markdown("---")
 
         urban_districts = ["Colombo", "Kandy", "Galle", "Jaffna", "Negombo", "Matara", "Kurunegala"]
+        reviews['Area_Type'] = reviews['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
         filtered_df['Area_Type'] = filtered_df['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
 
         # Pie chart
@@ -179,8 +200,8 @@ elif st.session_state.page == "Explore":
         st.subheader("🌟 Top Positive Rural Destinations")
         top_rural = filtered_df[(filtered_df['Area_Type'] == 'Rural') & (filtered_df['Sentiment'] == 'Positive')]
         top_rural_counts = top_rural['Destination'].value_counts().head(10).reset_index()
-        top_rural_counts.columns = ['Destination', 'Positive_Review_Count']
-        fig_top_rural = px.bar(top_rural_counts, x='Destination', y='Positive_Review_Count', color='Positive_Review_Count',
+        top_rural_counts.columns = ['Destination', 'Positive Review Count']
+        fig_top_rural = px.bar(top_rural_counts, x='Destination', y='Positive Review Count', color='Positive Review Count',
                                color_continuous_scale='viridis')
         st.plotly_chart(fig_top_rural, use_container_width=True)
 
@@ -244,7 +265,7 @@ elif st.session_state.page == "Itinerary":
                     "📍 Preferred District", options=["Any"] + sorted(reviews_df['District'].dropna().unique())
                 )
                 preferred_activity = st.multiselect(
-                    "🎯 Preferred Activity Category", options=["Any"] + sorted(activities_df['Activity_Category'].dropna().unique())
+                    "🎯 Preferred Activity Category", options=["Any"] + sorted(activities_df['Activity Category'].dropna().unique())
                 )
                 start_city = st.text_input("🚐 Start City", "Colombo")
                 end_city = st.text_input("🏁 End City", "Kandy")
@@ -255,12 +276,12 @@ elif st.session_state.page == "Itinerary":
                 if preferred_district != "Any":
                     itinerary_df = itinerary_df[itinerary_df['District'] == preferred_district]
                 if preferred_activity and "Any" not in preferred_activity:
-                    activity_filtered = activities_df[activities_df['Activity_Category'].isin(preferred_activity)]
+                    activity_filtered = activities_df[activities_df['Activity Category'].isin(preferred_activity)]
                 else:
                     activity_filtered = activities_df.copy()
 
                 itinerary_df = itinerary_df.merge(
-                    activity_filtered[['District', 'Activity_Category', 'Activity']], on='District', how='left'
+                    activity_filtered[['District', 'Activity Category', 'Activity']], on='District', how='left'
                 )
 
                 if start_city:
@@ -282,7 +303,7 @@ elif st.session_state.page == "Itinerary":
                     if not day_plan.empty:
                         st.markdown(f"<div><h3>📅 Day {day + 1}</h3>", unsafe_allow_html=True)
                         for _, row in day_plan.iterrows():
-                            activity_info = f"{row['Activity_Category']} - {row['Activity']}" if pd.notna(row['Activity_Category']) else "N/A"
+                            activity_info = f"{row['Activity Category']} - {row['Activity']}" if pd.notna(row['Activity Category']) else "N/A"
                             line = (f"- **Destination:** {row['Destination']} ({row['District']})  \n"
                                     f"  **Sentiment:** {row['Sentiment']}  \n"
                                     f"  **Activity:** {activity_info}")
@@ -322,10 +343,10 @@ elif st.session_state.page == "About":
     about_text = """
     <h1>🍃 About TravelPulse Sri Lanka</h1>
     <p>
-    TravelPulse Sri Lanka is more than just a travel guide; it is a data-driven platform designed to help travelers discover the island in a way that is meaningful, authentic, and sustainable. By applying advanced sentiment analysis to thousands of genuine tourist reviews, TravelPulse reveals what visitors truly value about Sri Lanka, from the vibrant pulse of its bustling cities to the tranquil beauty of its untouched rural landscapes.
+    TravelPulse Sri Lanka is more than just a travel guide; it is a data-driven platform designed to help travelers discover the island in a way that is meaningful, authentic, and sustainable. By applying advanced sentiment analysis to thousands of genuine tourist reviews, TravelPulse reveals what visitors truly value about Sri Lanka, from the vibrant pulse of its bustling cities to the tranquil beauty of its untouched rural landscapes. Every insight is drawn from real experiences, making TravelPulse a trusted companion for travelers who want more than just recommendations — they want journeys that matter.
     </p>
     <p>
-    Our mission is to promote responsible tourism that creates unforgettable memories for travelers while strengthening local communities, protecting cultural traditions, and safeguarding the island’s natural treasures. TravelPulse highlights both world-renowned attractions and hidden gems, including rural destinations that are often overlooked, helping distribute tourism more evenly across the island.
+    Our mission is to promote responsible tourism that not only creates unforgettable memories for travelers but also strengthens local communities, protects cultural traditions, and safeguards the island’s natural treasures for generations to come. To achieve this, TravelPulse goes beyond being a simple guidebook — it acts as a bridge between travelers and authentic experiences. By highlighting both world-renowned attractions and hidden gems, including rural destinations that are often overlooked, the platform helps distribute tourism more evenly across the island. This approach eases pressure on popular hotspots while also empowering smaller communities and supporting sustainable development, ensuring that travel benefits everyone.
     </p>
     <h3>🌏 Discover Experiences by Category</h3>
     <ul>
@@ -337,9 +358,16 @@ elif st.session_state.page == "About":
         <li><b>Food & Culinary</b> – Experience Sri Lanka’s rich flavors with street food tours, immersive cooking classes, and tea-tasting journeys.</li>
         <li><b>Rural & Village Experiences</b> – Connect with authentic lifestyles through village stays, farming, and traditional handicraft workshops.</li>
     </ul>
-    <p>✨ With TravelPulse Sri Lanka, every trip becomes more than just a holiday — it is an opportunity to travel with purpose, live like a local, and create lasting memories.</p>
+    <p>
+    ✨ With TravelPulse Sri Lanka, every trip becomes more than just a holiday — it is an opportunity to travel with purpose, live like a local, and create memories that leave a lasting impact on both you and the island itself.
+    </p>
     """
     with col1:
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
+
+
+
+
