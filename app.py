@@ -39,17 +39,8 @@ reviews_df = load_excel_data()
 @st.cache_data
 def load_activities_data():
     try:
-        df = pd.read_csv(activities_csv)
-        # Strip all spaces from headers
-        df.columns = df.columns.str.strip()
-        # Make column names consistent
-        df.columns = df.columns.str.title()
-        # Ensure required columns exist
-        required_cols = ['Activity Category', 'Activity', 'District']
-        missing = [col for col in required_cols if col not in df.columns]
-        if missing:
-            st.error(f"⚠ Missing expected column(s) in CSV: {missing}")
-            return pd.DataFrame()
+        df = pd.read_csv(activities_csv)  # CSV must use commas
+        df.columns = df.columns.str.strip()  # remove any hidden spaces
         df['Activity Category'] = df['Activity Category'].astype(str).str.title().str.strip()
         df['Activity'] = df['Activity'].astype(str).str.strip()
         df['District'] = df['District'].astype(str).str.title().str.strip()
@@ -57,7 +48,6 @@ def load_activities_data():
         st.error("⚠ Rural_Activities_Expanded.csv not found.")
         df = pd.DataFrame()
     return df
-
 
 activities_df = load_activities_data()
 
@@ -334,4 +324,5 @@ elif st.session_state.page == "About":
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
 
