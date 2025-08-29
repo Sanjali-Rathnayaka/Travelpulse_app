@@ -318,11 +318,31 @@ elif st.session_state.page == "About":
     col1, col2 = st.columns([2, 1])
     about_text = """
     <h1>🍃 About TravelPulse Sri Lanka</h1>
-    <p><b>TravelPulse Sri Lanka</b> is a data-driven platform helping travelers explore urban and rural destinations using tourist review sentiment analysis.</p>
+    <p>
+    TravelPulse Sri Lanka is more than just a travel guide; it is a data-driven platform designed to help travelers discover the island in a way that is meaningful, authentic, and sustainable. By applying advanced sentiment analysis to thousands of genuine tourist reviews, TravelPulse reveals what visitors truly value about Sri Lanka, from the vibrant pulse of its bustling cities to the tranquil beauty of its untouched rural landscapes. Every insight is drawn from real experiences, making TravelPulse a trusted companion for travelers who want more than just recommendations — they want journeys that matter.
+    </p>
+    <p>
+    Our mission is to promote responsible tourism that not only creates unforgettable memories for travelers but also strengthens local communities, protects cultural traditions, and safeguards the island’s natural treasures for generations to come. To achieve this, TravelPulse goes beyond being a simple guidebook — it acts as a bridge between travelers and authentic experiences. By highlighting both world-renowned attractions and hidden gems, including rural destinations that are often overlooked, the platform helps distribute tourism more evenly across the island. This approach eases pressure on popular hotspots while also empowering smaller communities and supporting sustainable development, ensuring that travel benefits everyone.
+    </p>
+    <h3>🌏 Discover Experiences by Category</h3>
+    <ul>
+        <li><b>Adventure & Outdoor</b> – Hike misty mountain trails, dive into thrilling water sports, embark on safaris, or soar high in a hot air balloon.</li>
+        <li><b>Cultural & Historical</b> – Step into the past through temples, colonial landmarks, museums, and traditional cultural performances.</li>
+        <li><b>Religious & Spiritual</b> – Find inner peace at sacred Buddhist and Hindu temples, meditation retreats, and pilgrimage sites.</li>
+        <li><b>Nature & Scenic</b> – Wander across emerald tea plantations, visit lush botanical gardens and cascading waterfalls, or ride the world-famous scenic train through the highlands.</li>
+        <li><b>Beach & Relaxation</b> – Soothe your soul with sun-kissed beaches, spa treatments, or rejuvenating yoga by the ocean.</li>
+        <li><b>Food & Culinary</b> – Experience Sri Lanka’s rich flavors with street food tours, immersive cooking classes, and tea-tasting journeys.</li>
+        <li><b>Rural & Village Experiences</b> – Connect with authentic lifestyles through village stays, farming, and traditional handicraft workshops.</li>
+    </ul>
+    <p>
+    ✨ With TravelPulse Sri Lanka, every trip becomes more than just a holiday — it is an opportunity to travel with purpose, live like a local, and create memories that leave a lasting impact on both you and the island itself.
+    </p>
     """
     with col1:
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
+
 
 
