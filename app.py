@@ -39,8 +39,8 @@ reviews_df = load_excel_data()
 @st.cache_data
 def load_activities_data():
     try:
-        df = pd.read_csv(activities_csv)  # CSV must use commas
-        df.columns = df.columns.str.strip()  # remove any hidden spaces
+        df = pd.read_csv(activities_csv)
+        df.columns = df.columns.str.strip()
         df['Activity Category'] = df['Activity Category'].astype(str).str.title().str.strip()
         df['Activity'] = df['Activity'].astype(str).str.strip()
         df['District'] = df['District'].astype(str).str.title().str.strip()
@@ -74,21 +74,18 @@ if not reviews_df.empty:
 # -------------------- Navbar as Boxes --------------------
 pages = ["Home", "Explore", "Itinerary", "About"]
 
-# Initialize page in session state
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-# Create a row of buttons for navigation
 cols = st.columns(len(pages))
 for i, page in enumerate(pages):
     if cols[i].button(page):
         st.session_state.page = page
 
-# Highlight the selected page using custom CSS
 st.markdown(
-    f"""
+    """
     <style>
-    .stButton button {{
+    .stButton button {
         width: 100%;
         padding: 15px;
         font-size: 1rem;
@@ -96,14 +93,14 @@ st.markdown(
         margin-bottom: 5px;
         background-color: #f0f0f0;
         transition: all 0.3s ease;
-    }}
-    .stButton button:hover {{
+    }
+    .stButton button:hover {
         background-color: #4CAF50;
         color: white;
-    }}
-    .stButton button:focus {{
+    }
+    .stButton button:focus {
         outline: 3px solid #4CAF50;
-    }}
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -167,15 +164,8 @@ elif st.session_state.page == "Explore":
 
     if not reviews.empty:
         st.sidebar.header("🔎 Filter Reviews")
-        filter_mode = st.sidebar.selectbox("Filter Mode", ["Show All", "Select Sentiment", "Select District"])
-        filtered_df = reviews.copy()
-
-        if filter_mode == "Select Sentiment":
-            sentiment_choice = st.sidebar.radio("Choose Sentiment", ["Positive", "Neutral", "Negative"])
-            filtered_df = reviews[reviews["Sentiment"] == sentiment_choice]
-        elif filter_mode == "Select District":
-            district_choice = st.sidebar.selectbox("Choose District", sorted(reviews["District"].dropna().unique()))
-            filtered_df = reviews[reviews["District"] == district_choice]
+        district_choice = st.sidebar.selectbox("Choose District", sorted(reviews["District"].dropna().unique()))
+        filtered_df = reviews[reviews["District"] == district_choice] if district_choice else reviews.copy()
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Reviews", len(reviews))
@@ -184,7 +174,6 @@ elif st.session_state.page == "Explore":
         st.markdown("---")
 
         urban_districts = ["Colombo", "Kandy", "Galle", "Jaffna", "Negombo", "Matara", "Kurunegala"]
-        reviews['Area_Type'] = reviews['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
         filtered_df['Area_Type'] = filtered_df['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
 
         # Pie chart
@@ -250,6 +239,7 @@ elif st.session_state.page == "Explore":
         )
         fig_urban_rural.update_layout(xaxis_title="Sentiment", yaxis_title="Number of Reviews", legend_title="Area Type")
         st.plotly_chart(fig_urban_rural, use_container_width=True)
+
 
 # -------------------- Itinerary Page --------------------
 elif st.session_state.page == "Itinerary":
@@ -366,6 +356,7 @@ elif st.session_state.page == "About":
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
         st.image(ABOUT_SIDE_IMG, width='stretch')
+
 
 
 
