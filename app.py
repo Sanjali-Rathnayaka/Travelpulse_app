@@ -14,11 +14,12 @@ st.set_page_config(page_title="TravelPulse Sri Lanka", layout="wide")
 
 # -------------------- Path Setup --------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(BASE_DIR, "Assets")
+
 reviews_xlsx = os.path.join(BASE_DIR, "Final_Cleaned_Tourist_Reviews.xlsx")
 activities_csv = os.path.join(BASE_DIR, "Rural_Activities_Expanded.csv")
 
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-ITINERARY_MAP = os.path.join(ASSETS_DIR, "sri-lankan-travel-map.png")
+ITINERARY_MAP = os.path.join(ASSETS_DIR, "sri-lankan-travel-map.jpg")
 ABOUT_IMG = os.path.join(ASSETS_DIR, "511564047_3690789407732651_2711082666974816646_n.jpg")
 ABOUT_SIDE_IMG = os.path.join(ASSETS_DIR, "jaffna-aesthetic.jpeg")
 
@@ -39,10 +40,15 @@ reviews_df = load_excel_data()
 def load_activities_data():
     try:
         df = pd.read_csv(activities_csv)
-        df['Activity Category'] = df['Activity Category'].astype(str).str.title()
+        df.columns = df.columns.str.strip()
+        df['Activity Category'] = df['Activity Category'].astype(str).str.title().str.strip()
+        df['Activity'] = df['Activity'].astype(str).str.strip()
         df['District'] = df['District'].astype(str).str.title().str.strip()
     except FileNotFoundError:
         st.error("⚠ Rural_Activities_Expanded.csv not found.")
+        df = pd.DataFrame()
+    except KeyError as e:
+        st.error(f"⚠ Missing expected column: {e}")
         df = pd.DataFrame()
     return df
 
@@ -82,13 +88,6 @@ selected = st.radio(
 )
 st.session_state.page = selected
 
-# -------------------- Background Images --------------------
-page_backgrounds = {
-    "Home": "https://ceylonsrilankan.com/_next/image?url=%2Fimg%2Fdemodara-bridge.jpeg&w=3840&q=75",
-    "Itinerary": ITINERARY_MAP,
-    "About": ABOUT_IMG
-}
-
 # -------------------- General CSS --------------------
 st.markdown(
     """
@@ -106,7 +105,7 @@ st.markdown(
 
 # -------------------- Home Page --------------------
 if st.session_state.page == "Home":
-    home_bg_url = page_backgrounds['Home']
+    home_bg_url = "https://ceylonsrilankan.com/_next/image?url=%2Fimg%2Fdemodara-bridge.jpeg&w=3840&q=75"
     st.markdown(
         f"""
         <style>
@@ -128,7 +127,6 @@ if st.session_state.page == "Home":
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
         }}
         </style>
-
         <div class="home-overlay">
             <h1 style="font-size:4rem;">🌏 TravelPulse Sri Lanka</h1>
             <p style="font-size:1.5rem;">
@@ -147,7 +145,6 @@ elif st.session_state.page == "Explore":
     conn.close()
 
     if not reviews.empty:
-        # Filters
         st.sidebar.header("🔎 Filter Reviews")
         filter_mode = st.sidebar.selectbox("Filter Mode", ["Show All", "Select Sentiment", "Select District"])
         filtered_df = reviews.copy()
@@ -159,14 +156,12 @@ elif st.session_state.page == "Explore":
             district_choice = st.sidebar.selectbox("Choose District", sorted(reviews["District"].dropna().unique()))
             filtered_df = reviews[reviews["District"] == district_choice]
 
-        # Metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Reviews", len(reviews))
         col2.metric("Unique Destinations", reviews['Destination'].nunique())
         col3.metric("Districts Covered", reviews['District'].nunique())
         st.markdown("---")
 
-        # Urban vs Rural split
         urban_districts = ["Colombo", "Kandy", "Galle", "Jaffna", "Negombo", "Matara", "Kurunegala"]
         reviews['Area_Type'] = reviews['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
         filtered_df['Area_Type'] = filtered_df['District'].apply(lambda x: 'Urban' if x in urban_districts else 'Rural')
@@ -180,7 +175,7 @@ elif st.session_state.page == "Explore":
         st.subheader("📊 Review Distribution by Area")
         st.plotly_chart(fig_area, use_container_width=True)
 
-        # Top Positive Rural
+        # Top Positive Rural Destinations
         st.subheader("🌟 Top Positive Rural Destinations")
         top_rural = filtered_df[(filtered_df['Area_Type'] == 'Rural') & (filtered_df['Sentiment'] == 'Positive')]
         top_rural_counts = top_rural['Destination'].value_counts().head(10).reset_index()
@@ -219,7 +214,7 @@ elif st.session_state.page == "Explore":
         else:
             st.warning("⚠ No geolocation data available.")
 
-        # Urban vs Rural sentiment
+        # Urban vs Rural Sentiment
         st.subheader("📊 Urban vs Rural Sentiment Comparison")
         sentiment_comparison = filtered_df.groupby(['Area_Type', 'Sentiment']).size().reset_index(name='Count')
         fig_urban_rural = px.bar(
@@ -232,39 +227,25 @@ elif st.session_state.page == "Explore":
             color_discrete_map={'Urban': 'blue', 'Rural': 'green'},
             title="Sentiment Comparison: Urban vs Rural Destinations"
         )
+        fig_urban_rural.update_layout(xaxis_title="Sentiment", yaxis_title="Number of Reviews", legend_title="Area Type")
         st.plotly_chart(fig_urban_rural, use_container_width=True)
 
 # -------------------- Itinerary Page --------------------
 elif st.session_state.page == "Itinerary":
-    st.markdown(
-        """
-        <style>
-        .itinerary-box {
-            padding: 20px;
-            border-radius: 12px;
-            background-color: #f9f9f9;
-            color: #000;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            margin-bottom: 15px;
-        }
-        .itinerary-box h3 {
-            color: #1f2c56;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
     st.markdown("<h1>🧳 Personalized Travel Itinerary</h1>", unsafe_allow_html=True)
     pdf_bytes = None
-
     col1, col2 = st.columns([2, 1])
+
     with col1:
         if not reviews_df.empty and not activities_df.empty:
             with st.form("itinerary_form"):
                 num_days = st.slider("🗓 Trip Duration (in days)", 1, 10, 3)
-                preferred_district = st.selectbox("📍 Preferred District", options=["Any"] + sorted(reviews_df['District'].dropna().unique()))
-                preferred_activity = st.multiselect("🎯 Preferred Activity Category", options=["Any"] + sorted(activities_df['Activity Category'].dropna().unique()))
+                preferred_district = st.selectbox(
+                    "📍 Preferred District", options=["Any"] + sorted(reviews_df['District'].dropna().unique())
+                )
+                preferred_activity = st.multiselect(
+                    "🎯 Preferred Activity Category", options=["Any"] + sorted(activities_df['Activity Category'].dropna().unique())
+                )
                 start_city = st.text_input("🚐 Start City", "Colombo")
                 end_city = st.text_input("🏁 End City", "Kandy")
                 submitted = st.form_submit_button("Generate Itinerary")
@@ -273,18 +254,15 @@ elif st.session_state.page == "Itinerary":
                 itinerary_df = reviews_df.drop_duplicates(subset=['Destination'])
                 if preferred_district != "Any":
                     itinerary_df = itinerary_df[itinerary_df['District'] == preferred_district]
-
                 if preferred_activity and "Any" not in preferred_activity:
                     activity_filtered = activities_df[activities_df['Activity Category'].isin(preferred_activity)]
                 else:
                     activity_filtered = activities_df.copy()
 
                 itinerary_df = itinerary_df.merge(
-                    activity_filtered[['District', 'Activity Category', 'Activity']],
-                    on='District', how='left'
+                    activity_filtered[['District', 'Activity Category', 'Activity']], on='District', how='left'
                 )
 
-                # Reorder
                 if start_city:
                     start_row = itinerary_df[itinerary_df['Destination'].str.contains(start_city, case=False)]
                     if not start_row.empty:
@@ -302,7 +280,7 @@ elif st.session_state.page == "Itinerary":
                 for day in range(num_days):
                     day_plan = itinerary_df.iloc[day * destinations_per_day:(day + 1) * destinations_per_day]
                     if not day_plan.empty:
-                        st.markdown(f"<div class='itinerary-box'><h3>📅 Day {day + 1}</h3>", unsafe_allow_html=True)
+                        st.markdown(f"<div><h3>📅 Day {day + 1}</h3>", unsafe_allow_html=True)
                         for _, row in day_plan.iterrows():
                             activity_info = f"{row['Activity Category']} - {row['Activity']}" if pd.notna(row['Activity Category']) else "N/A"
                             line = (f"- **Destination:** {row['Destination']} ({row['District']})  \n"
@@ -328,50 +306,24 @@ elif st.session_state.page == "Itinerary":
                 pdf_bytes = pdf_buffer.getvalue()
 
             if pdf_bytes:
-                st.download_button("📥 Download Itinerary as PDF", data=pdf_bytes, file_name="travel_itinerary.pdf", mime="application/pdf")
+                st.download_button(
+                    label="📥 Download Itinerary as PDF",
+                    data=pdf_bytes,
+                    file_name="travel_itinerary.pdf",
+                    mime="application/pdf"
+                )
 
     with col2:
-        if os.path.exists(ITINERARY_MAP):
-            st.image(ITINERARY_MAP, use_column_width=True)
-        else:
-            st.warning("⚠ Itinerary map not found in assets/")
+        st.image(ITINERARY_MAP, width='stretch')
 
 # -------------------- About Page --------------------
 elif st.session_state.page == "About":
-    st.markdown(
-        """
-        <style>
-        .about-container { display: flex; gap: 20px; align-items: flex-start; }
-        .about-box {
-            padding: 25px; border-radius: 15px;
-            background-color: #fdfdfd; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            color: #1f2c56; line-height: 1.6;
-        }
-        .about-box h1 { color: #1a237e; font-size: 2rem; margin-bottom: 15px; }
-        .about-box h3 { color: #3949ab; margin-top: 20px; margin-bottom: 10px; }
-        .activity-list li { margin-bottom: 8px; }
-        </style>
-        """, unsafe_allow_html=True
-    )
-
     col1, col2 = st.columns([2, 1])
     about_text = """
     <h1>🍃 About TravelPulse Sri Lanka</h1>
-    <p><b>TravelPulse Sri Lanka</b> is a data-driven platform designed to help travelers discover authentic Sri Lankan experiences...</p>
-    <h3>🌏 Discover Experiences by Category:</h3>
-    <ul class="activity-list">
-        <li><b>Adventure & Outdoor:</b> Hike, dive, safaris...</li>
-        <li><b>Cultural & Historical:</b> Temples, landmarks, museums...</li>
-        <li><b>Nature & Scenic:</b> Tea plantations, waterfalls...</li>
-        <li><b>Beach & Relaxation:</b> Beaches, spas, yoga...</li>
-        <li><b>Food & Culinary:</b> Street food, cooking classes...</li>
-        <li><b>Rural & Village:</b> Village stays, farming, handicrafts...</li>
-    </ul>
+    <p><b>TravelPulse Sri Lanka</b> is a data-driven platform helping travelers explore urban and rural destinations using tourist review sentiment analysis.</p>
     """
     with col1:
-        st.markdown(f"<div class='about-box'>{about_text}</div>", unsafe_allow_html=True)
+        st.markdown(about_text, unsafe_allow_html=True)
     with col2:
-        if os.path.exists(ABOUT_SIDE_IMG):
-            st.image(ABOUT_SIDE_IMG, use_column_width=True)
-        else:
-            st.warning("⚠ About side image not found in assets/")
+        st.image(ABOUT_SIDE_IMG, width='stretch')
