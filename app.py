@@ -309,7 +309,7 @@ elif st.session_state.page == "Itinerary":
                 )
 
     with col2:
-        st.image(ITINERARY_MAP, use_column_width=True)
+        st.image(ITINERARY_MAP, width="stretch")  # ✅ updated
 
 # -------------------- About Page --------------------
 elif st.session_state.page == "About":
@@ -339,4 +339,4 @@ elif st.session_state.page == "About":
     with col1:
         st.markdown(about_text, unsafe_allow_html=True)
     with col2:
-        st.image(ABOUT_SIDE_IMG, use_container_width=True)  # ✅ Fixed
+        st.image(ABOUT_SIDE_IMG, width="stretch")  # ✅ updated
